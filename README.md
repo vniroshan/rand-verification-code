@@ -1,4 +1,4 @@
-# generate-verification-code
+# rand-verification-code
 
 A lightweight, flexible JavaScript library for generating random verification codes with customizable character sets and security options.
 
@@ -14,7 +14,7 @@ A lightweight, flexible JavaScript library for generating random verification co
 ## Installation
 
 ```bash
-npm install generate-verification-code
+npm install rand-verification-code
 ```
 
 ## Usage
@@ -22,7 +22,7 @@ npm install generate-verification-code
 ### Basic Usage
 
 ```javascript
-const { generateVerificationCode } = require('generate-verification-code');
+const { generateVerificationCode } = require('rand-verification-code');
 
 // Generate a 6-character code with digits and uppercase letters (default)
 const code = generateVerificationCode();
