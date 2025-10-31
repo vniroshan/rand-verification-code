@@ -1,6 +1,6 @@
 {
   "name": "rand-verification-code",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Small package to generate random verification codes",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
