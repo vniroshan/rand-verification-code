@@ -7,6 +7,11 @@ A lightweight, flexible JavaScript library for generating random verification co
 - 🎲 Cryptographically secure random generation (when available)
 - 🔧 Highly configurable character sets
 - 🚫 Option to avoid ambiguous characters (0/O, 1/l/I, etc.)
+- ⏱️ Built-in expiry/TTL support
+- 🔐 Timing-safe code verification
+- 🔢 Batch generation with uniqueness guarantees
+- ✅ Checksum digit for typo detection
+- 🎯 Pluggable RNG for deterministic testing
 - 📦 Zero dependencies
 - 🌐 Works in Node.js and browsers
 - 💪 TypeScript-friendly
@@ -84,15 +89,72 @@ Generates a random verification code string.
 | `symbols` | `boolean` | `false` | Include symbols (!@#$%^&*...) |
 | `avoidAmbiguous` | `boolean` | `true` | Avoid ambiguous characters (0, O, o, 1, l, I, etc.) |
 | `charset` | `string` | `undefined` | Custom character set (overrides all other character options) |
+| `expiresIn` | `number` | `undefined` | If set, code expires this many seconds from now. Changes the return value to `{ code, expiresAt }` |
+| `rng` | `function` | `undefined` | Custom random source, called with no arguments and expected to return a float in `[0, 1)`, like `Math.random`. Overrides the built-in crypto-based generator |
 
 #### Returns
 
-Returns a `string` containing the randomly generated verification code.
+Returns a `string` containing the randomly generated verification code, or `{ code, expiresAt }` when `expiresIn` is set.
 
 #### Throws
 
 - `TypeError` - If `length` is not a positive integer
+- `TypeError` - If `expiresIn` is provided and is not a positive number
+- `TypeError` - If `rng` is provided and is not a function
 - `Error` - If the character pool is empty (no character types enabled)
+
+### `generateVerificationCodes(count, [options])`
+
+Generates multiple verification codes at once. Accepts the same options as `generateVerificationCode`, plus:
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `unique` | `boolean` | `false` | Dedupe internally so every returned code is distinct |
+
+```javascript
+const { generateVerificationCodes } = require('rand-verification-code');
+
+const codes = generateVerificationCodes(100, { length: 6, unique: true });
+```
+
+Throws a `TypeError` if `count` is not a positive integer, and an `Error` if `unique: true` is requested but the character pool/length is too small to produce that many distinct codes.
+
+### `verifyCode(input, code)`
+
+Timing-safe comparison for checking a user-supplied code against the expected one. Uses `crypto.timingSafeEqual` under the hood (with a constant-time fallback), so it doesn't leak timing information the way `input === code` can.
+
+```javascript
+const { verifyCode } = require('rand-verification-code');
+
+verifyCode(userInput, expectedCode); // true / false
+```
+
+### `isCodeExpired(expiresAt)`
+
+Checks whether an expiry timestamp (as returned by `generateVerificationCode` with `expiresIn`) has passed.
+
+```javascript
+const { generateVerificationCode, isCodeExpired } = require('rand-verification-code');
+
+const { code, expiresAt } = generateVerificationCode({ length: 6, expiresIn: 300 }); // 5 min
+isCodeExpired(expiresAt); // false, until 5 minutes pass
+```
+
+### `addChecksum(code, [options])` / `verifyChecksum(codeWithChecksum, [options])`
+
+Appends (and later verifies) a Luhn mod N check character, so a single mistyped character can be caught before hitting your backend. Most useful for manually-entered codes; less useful for SMS/email OTPs that are copy-pasted.
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `charset` | `string` | `0-9A-Z` | Charset the code is drawn from; must match between `addChecksum` and `verifyChecksum` |
+
+```javascript
+const { addChecksum, verifyChecksum } = require('rand-verification-code');
+
+const withChecksum = addChecksum('A3K9P2'); // e.g. "A3K9P2Q"
+verifyChecksum(withChecksum); // true
+verifyChecksum('A3K9P3Q');    // false — typo caught
+```
 
 ## Examples
 
@@ -140,6 +202,8 @@ const resetToken = generateVerificationCode({
 This library uses `crypto.randomBytes()` when available (Node.js environment) for cryptographically secure random number generation. In browser environments or when crypto is unavailable, it falls back to `Math.random()`.
 
 **Note:** For security-critical applications, ensure you're running in an environment where `crypto.randomBytes()` is available.
+
+Always compare user-supplied codes with [`verifyCode`](#verifycodeinput-code) instead of `input === code` — a plain string comparison can leak timing information about how many leading characters matched, which an attacker can use to guess the code character-by-character. `verifyCode` uses `crypto.timingSafeEqual()` (with a constant-time fallback) to avoid that.
 
 ## Browser Support
 
